@@ -1,0 +1,10 @@
+FROM python:3.10.0
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+
+WORKDIR /working/frc_tester
+
+COPY requirements.txt /working/frc_tester/
+RUN pip install --no-cache-dir -r /working/frc_tester/requirements.txt
+
+COPY . /working/frc_tester
