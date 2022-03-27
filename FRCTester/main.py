@@ -27,6 +27,8 @@ logging.basicConfig(level=logging.INFO)
 def main():
     logger = logging.getLogger('FRC TESTER')
     
+    logger.info('Start of FRC requests testing...')
+    
     queries = get_queries()
     results = asyncio.run(test_api_queries(queries))
     with open(f'{REPORTS_PATH}/report.csv', 'w') as file:
@@ -73,6 +75,7 @@ def main():
             # ROW WRITE
             writer.writerow(row)
     logger.info(f'Report file created at {REPORTS_PATH}')
+    logger.info(f'Report file created locally at {os.environ.get("LOCAL_PATH")}')
 
 def get_queries() -> list:
     queries = []
