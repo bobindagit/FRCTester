@@ -1,7 +1,8 @@
 #!/bin/bash
 
-docker-compose --project-name frc_tester build --no-cache
-docker-compose --project-name frc_tester up
+docker-compose build --no-cache
+docker-compose run python_app
 docker container prune -f
 docker image prune -f
 docker volume prune -f
+docker image rm frctester_python_app

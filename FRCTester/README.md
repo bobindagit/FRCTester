@@ -6,6 +6,8 @@
 > API_TOKEN - aviapages API token
 >
 > LOCAL_PATH - local path for saving reports
+>
+> FILENAME - name of the csv log file
 3. Run script
 > run_main.sh
 

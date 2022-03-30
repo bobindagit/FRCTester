@@ -11,6 +11,7 @@ import asyncio
 import aiohttp
 
 from alive_progress import alive_it
+from tqdm.asyncio import tqdm
 
 BASE_DIR = Path(__file__).resolve().parent
 REPORTS_PATH = f'{BASE_DIR}/reports'
@@ -79,20 +80,97 @@ def main():
 
 def get_queries() -> list:
     queries = []
-    with open(f'{BASE_DIR}/frc.csv') as file:
+    with open(f'{BASE_DIR}/{os.environ.get("FILENAME")}') as file:
         reader = csv.reader(file, delimiter=',')
-        for row in reader:
-            if 'flight_calculator' in row[2]:
-                queries.append(get_query_data(row[2]))
+        for row in alive_it(reader):
+            if '/api/v1/flight_calculator' in row[2]:
+                query_data_v1 = get_query_data_v1(row[2])
+                if query_data_v1 is not None:
+                    queries.append(query_data_v1)
+                queries.append(get_query_data_v1(row[2]))
+            elif '{"url": "/flight_calculator' in row[2]:
+                query_data_v2 = get_query_data_v2(row[2])
+                if query_data_v2 is not None:
+                    queries.append(query_data_v2)
 
     return queries
 
 
-def get_query_data(query: str) -> dict:
+def get_query_data_v2(query: str) -> dict|None:
+    # Preparation text for processing
+    text = query.split('{')
+    if len(text) < 3:
+        return None
+    
+    text = text[2].replace('}"}', '')
+    text = text.replace('\\n', '')
+    text = text.replace('\\', '')
+    
+    # Getting query parameters
+    query_dict = {}
+    request_parameters = text.split(',')
+    for i in range(len(request_parameters)):
+        current_parameter = request_parameters[i].split('":')
+        if len(current_parameter) == 2:
+            converted_parameter = convert_parameter_v2(current_parameter[0], current_parameter[1])
+            query_dict.update(converted_parameter)
+        else:
+            # Current parameter could be empty
+            if len(current_parameter[0].strip()) == 0:
+                continue
+            # We should find key for current value
+            for y in range(i, 0, -1):
+                temp_parameter = request_parameters[y].split('":')
+                if len(temp_parameter) == 2:
+                    # Key was found
+                    converted_parameter = convert_parameter_v2(temp_parameter[0], current_parameter[0])
+                    # 1 cicle loop
+                    for key in converted_parameter.keys():
+                        value = converted_parameter.get(key)
+                        current_value = query_dict.get(key)
+                        if isinstance(value, list):
+                            current_value.append(value[0])
+                        else:
+                            current_value.append(value)
+                        query_dict.update({key: current_value})
+                    break
+    
+    return query_dict
+        
+
+def convert_parameter_v2(name: str, value: str) -> dict:
+    name = name.strip().replace('"', '')
+    value = value.strip().replace('"', '')
+    if '[]' in name or '[' in value or ']' in value:
+        name = name.replace('[]', '')
+        value = value.replace('[', '').replace(']', '')
+        value_v2 = []
+        if len(value) > 0:
+            for list_value in value.split(','):
+                value_v2.append(list_value.strip())
+    elif value == 'true':
+        value_v2 = True
+    elif value == 'false':
+        value_v2 = False
+    elif 'pax' in name:
+        value_v2 = int(value) if len(value) > 0 else 0
+    else:
+        value_v2 = value
+        
+    return {name: value_v2}
+    
+
+def get_query_data_v1(query: str) -> dict|None:
     # Getting query parameters
     url = query.split('"')[3]
-    url_query = url.split('?')[1]
+    url = url.split('?')
+    if len(url) < 2:
+        return None
+    url_query = url[1]
+    
     url_parameters = url_query.split('&')
+    if len(url_parameters) == 0:
+        return None
 
     # Generating dict for new version
     query_dict = {}
@@ -100,7 +178,7 @@ def get_query_data(query: str) -> dict:
     avoid_firs = set()
     for parameter in url_parameters:
         current_parameter = parameter.split('=')
-        converted_parameter = convert_parameter(current_parameter[0], current_parameter[1])
+        converted_parameter = convert_parameter_v1(current_parameter[0], current_parameter[1])
         if converted_parameter is not None:
             for query_key in converted_parameter.keys():
                 if query_key == 'avoid_countries':
@@ -116,14 +194,15 @@ def get_query_data(query: str) -> dict:
     return query_dict
 
 
-def convert_parameter(name: str, value: str) -> dict|None:
+def convert_parameter_v1(name: str, value: str) -> dict|None:
+    name_v2 = name
     same_name = {
         'departure_airport',
         'arrival_airport',
         'pax'
     }
     if name in same_name:
-        name_v2 = name
+        name_v2 = name.strip()
     elif name == 'departure_date_utc':
         name_v2 = 'departure_datetime'
     elif name == 'aircraft_profile':
@@ -168,10 +247,14 @@ def convert_parameter(name: str, value: str) -> dict|None:
 async def test_api_queries(queries: list) -> list:
     async with aiohttp.ClientSession(headers=HEADERS, trust_env=True) as session:
         tasks = []
-        for query in alive_it(queries):
+        for query in queries:
             tasks.append(asyncio.ensure_future(test_api_query(session, query)))
+        return [
+            await f
+            for f in tqdm(asyncio.as_completed(tasks), total=len(tasks))
+        ]
         
-        return await asyncio.gather(*tasks)
+        # return await asyncio.gather(*tasks)
 
 
 async def test_api_query(session, query: dict) -> set:

@@ -9,4 +9,4 @@ RUN pip install --no-cache-dir -r /working/frc_tester/requirements.txt
 
 COPY . /working/frc_tester
 
-CMD ["python", "-u", "-m", "unit_tests.frc_test"]
+CMD ["python", "-m", "unittest", "unit_tests/frc_test.py"]
