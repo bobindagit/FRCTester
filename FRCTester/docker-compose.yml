@@ -1,12 +1,13 @@
 version: '3'
+
 services:
-  python_app:
+
+  app:
+    build:
+      context: .
     volumes:
       - ${LOCAL_PATH}:/working/frc_tester/reports
     env_file:
       - ./.env
-    build:
-      context: .
-      dockerfile: Dockerfile
     command:
       python -u main.py

@@ -13,13 +13,14 @@ import aiohttp
 from alive_progress import alive_it
 from tqdm.asyncio import tqdm
 
+
 BASE_DIR = Path(__file__).resolve().parent
 REPORTS_PATH = f'{BASE_DIR}/reports'
 
 SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
 HEADERS = {
     'Content-Type': 'application/json',
-    'Authorization': os.environ.get('API_TOKEN')
+    'Authorization': f'Token {os.environ.get("API_TOKEN")}'
 }
 
 logging.basicConfig(level=logging.INFO)
