@@ -6,7 +6,7 @@ services:
     build:
       context: .
     volumes:
-      - ${LOCAL_PATH}:/working/frc_tester/reports
+      - ${LOCAL_PATH}:/app/reports
     env_file:
       - ./.env
     command:
